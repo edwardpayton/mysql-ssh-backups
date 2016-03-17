@@ -1,6 +1,6 @@
 import paramiko
 import json
-import time
+import datetime
 import os
 
 # SSH function to get the output from the server when the command is executed
@@ -23,37 +23,82 @@ script_dir_path = os.path.dirname(os.path.realpath(__file__))
 # Loading the configuration file
 config_file = open(script_dir_path + "/config/config.json", "r")
 config_file = json.load(config_file)
-backup_folder = script_dir_path + '/' + config_file['settings']['backup_folder']
+
+##
+today = datetime.date.today()
+date = str(today)
+days = config_file['settings']['days_to_keep']
+threshold = datetime.datetime.now() + datetime.timedelta(days = - days)
+
+local_dir = config_file['settings']['local_dir']
+local_backup_dir = local_dir + date
 
 # Loop every website to backup
-for website in config_file['websites']:
+for w in config_file['websites']:
+
+    # Remote directory
+    remote_dir = config_file['websites'][w]['remote_dir']
+
+    # SSH
+    if config_file['websites'][w]['ssh']['use_default_ssh'] == False:
+        ssh_user = config_file['websites'][w]['ssh']['ssh_user']
+        ssh_host = config_file['websites'][w]['ssh']['ssh_host']
+    else:
+        ssh_user = config_file['settings']['default_ssh_user']
+        ssh_host = config_file['settings']['default_ssh_host']
+
+    # mySql
+    sql_user = config_file['websites'][w]["mysql"]['mysql_user']
+    sql_pass = config_file['websites'][w]["mysql"]['mysql_pwd']
+    sql_host = config_file['websites'][w]["mysql"]['mysql_host']
 
     # Open SSH connection
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.load_system_host_keys()
-    client.connect(config_file['websites'][website]['config']['host'], username=config_file['websites'][website]['config']['username'])
+    client.connect(ssh_host, username=ssh_user)
 
     # Open SFTP connection
     sftp_client = client.open_sftp()
 
-    # Create backup folder (if not existing)
-    if not os.path.exists(backup_folder):
-        os.makedirs(backup_folder)
+    # Database var
+    databases = ssh("mysql -q -u " + sql_user + " -h " + sql_host + " -p" + sql_pass + " -e 'show databases;'")
+
+    # Create remote backup folder (if not existing)
+    if not os.path.exists(remote_dir + '/' + date):
+        ssh('mkdir ' + remote_dir + '/' + date)
+    remote_backup_dir = remote_dir + '/' + date
+
+    # Create local backup folder (if not existing)
+    if not os.path.exists(local_backup_dir):
+        os.makedirs(local_backup_dir)
 
     # Loop the databases
-    for database in config_file['websites'][website]['databases']:
-        if not os.path.exists(backup_folder + website + '/' + database):
-            os.makedirs(backup_folder + website + '/' + database)
+    for db in databases:
+
+        # File paths
+        remote_file_path = remote_backup_dir + '/' + db + '.sql.bz2'
+        local_file_path = local_backup_dir + '/' + db + '.sql.bz2'
 
         # Create backup file
-        ssh('mysqldump -u' + config_file['websites'][website]['databases'][database]['mysql_user'] + ' -p' + config_file['websites'][website]['databases'][database]['mysql_pwd'] + ' -h' + config_file['websites'][website]['databases'][database]['mysql_host'] + ' ' + database + ' --lock-tables=false | bzip2 - - > db-backup-tmp.sql.bz2')
+        ssh('mysqldump -u' + sql_user + ' -p' + sql_pass + ' -h' + sql_host + ' ' + db + ' --lock-tables=false | bzip2 - - > ' + remote_file_path)
 
         # Open SFTP connection & download the backup file to the backup dir
-        remote_file = sftp_client.get("db-backup-tmp.sql.bz2", backup_folder + website + '/' + database + "/backup-" + time.strftime("%Y-%m-%d-%H%M%S") + ".sql.bz2")
+        remote_file = sftp_client.get(remote_file_path, local_file_path)
 
-        # Remove the tmp sql file from the server
-        ssh('rm db-backup-tmp.sql.bz2')
+    # Remove old backup files and folders (server)
+    ssh('find ' + remote_dir + '* -type d -mtime +' + str(days) + ' -exec rm -r {} \;')
 
     # Close the connection
     client.close()
+
+# Remove old backup files and folders (local)
+for d in os.listdir(local_dir):
+    absolute_d = os.path.join(local_dir, d)
+    st = os.stat(absolute_d)
+    mtime = datetime.datetime.fromtimestamp(st.st_mtime)
+
+    if mtime < threshold:
+        print('remove ' + d)
+
+#

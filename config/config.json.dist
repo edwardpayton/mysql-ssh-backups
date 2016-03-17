@@ -1,20 +1,40 @@
 {
-    "settings": {
-        "backup_folder": "backup/"
+    "_COMMENTS":{
+      "directory_paths": "Include a trailing slash on paths!",
+      "ssh_username": "Ensure the ssh user has key access"
     },
-    "websites": {
-        "nameforthefirstwebsite": {
-            "config": {
-                "host": "",
-                "username": ""
+    "settings": {
+        "local_dir": "local_directory_path",
+        "days_to_keep": 30,
+        "default_ssh_host": "host_ip",
+        "default_ssh_user": "ssh_user"
+    },
+    "servers": {
+        "server_one": {
+            "remote_dir": "remote_directory_path",
+            "ssh": {
+                "use_default_ssh": true,
+                "ssh_host": "",
+                "ssh_user": ""
             },
-            "databases": {
-                "databasename1": {
-                    "mysql_host": "",
-                    "mysql_user": "",
-                    "mysql_pwd": ""
-                }
+            "mysql": {
+                "mysql_host": "hostname",
+                "mysql_user": "mysql_username",
+                "mysql_pwd": "password"
             }
-        }
+        },
+        "server_two": {
+            "remote_dir": "remote_directory_path",
+            "ssh": {
+                "use_default_ssh": false,
+                "ssh_host": "host_ip",
+                "ssh_user": "ssh_username"
+            },
+            "mysql": {
+                "mysql_host": "hostname",
+                "mysql_user": "mysql_username",
+                "mysql_pwd": "password"
+            }
+        },
     }
 }
