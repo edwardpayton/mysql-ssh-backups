@@ -1,4 +1,4 @@
-# My Fork of <a href="https://github.com/jessedobbelaere/mysql-ssh-backups" target="_blank">this</a>
+# My fork of <a href="https://github.com/jessedobbelaere/mysql-ssh-backups" target="_blank">this</a>
 
 My changes to the original
 - Database names are not entered in the config file, but generated dynamically from a sql query, the script backs up every database the query finds.
