@@ -7,7 +7,8 @@
         "local_dir": "local_directory_path",
         "days_to_keep": 30,
         "default_ssh_host": "host_ip",
-        "default_ssh_user": "ssh_user"
+        "default_ssh_user": "ssh_user",
+        "email": "email_address"
     },
     "servers": {
         "server_one": {

@@ -65,9 +65,9 @@ for w in config_file['websites']:
     databases = ssh("mysql -q -u " + sql_user + " -h " + sql_host + " -p" + sql_pass + " -e 'show databases;'")
 
     # Create remote backup folder (if not existing)
-    if not os.path.exists(remote_dir + '/' + date):
-        ssh('mkdir ' + remote_dir + '/' + date)
-    remote_backup_dir = remote_dir + '/' + date
+    if not os.path.exists(remote_dir + date):
+        ssh('mkdir ' + remote_dir + date)
+    remote_backup_dir = remote_dir + date
 
     # Create local backup folder (if not existing)
     if not os.path.exists(local_backup_dir):
@@ -101,4 +101,39 @@ for d in os.listdir(local_dir):
     if mtime < threshold:
         print('remove ' + d)
 
-#
+# Send Email
+# count files
+file_list = next(os.walk(local_backup_dir))[2]
+number_files = len(file_list)
+# list local files
+files_arr = []
+for f in file_list:
+    f_path = local_backup_dir + '/' + f
+    files_arr.append(f_path)
+files_arr = '\n '.join(files_arr)
+# prepare email
+from email.mime.text import MIMEText
+from subprocess import Popen, PIPE
+
+def send_mail(text,subject=""):
+
+    msg = MIMEText(text)
+    msg["From"] = "MySql Backup <e@mail.com>"
+    msg["To"] = config_file['settings']['email']
+    msg["Subject"] = "MySql Backup Report " + subject
+    p = Popen(["/usr/sbin/sendmail", "-t", "-oi"], stdin=PIPE)
+    p.communicate(msg.as_string())
+
+
+if number_files == 0:
+    text = "Something went wrong, databases were not backed up."
+    send_mail(text,"ERROR")
+else:
+    text = """\
+%s databases were backed up on the server here:
+%s
+
+Backups stored locally:
+%s\
+    """ % (number_files, remote_backup_dir, files_arr)
+    send_mail(text)
