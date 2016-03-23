@@ -100,6 +100,7 @@ for d in os.listdir(local_dir):
 
     if mtime < threshold:
         print('remove ' + d)
+        shutil.rmtree(absolute_d)
 
 # Send Email
 # count files
